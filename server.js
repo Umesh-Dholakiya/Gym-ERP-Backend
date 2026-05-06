@@ -87,7 +87,7 @@ const limiter = rateLimit({
 const speedLimiter = slowDown({
   windowMs: 15 * 60 * 1000,
   delayAfter: 50,
-  delayMs: 500
+  delayMs: () => 500
 });
 
 app.use('/api/', speedLimiter);
@@ -261,13 +261,29 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Serve static files from the React app
-app.use(express.static(path.join(__dirname, '../client/dist')));
+// Serve static files from the React app if it exists (for monolithic deployment)
+const clientBuildPath = path.join(__dirname, '../client/dist');
+if (fs.existsSync(clientBuildPath)) {
+  app.use(express.static(clientBuildPath));
 
-// 404 handler
-app.get(/^(?!\/api).*$/, (req, res) => {
-  res.sendFile(path.join(__dirname, '../client/dist', 'index.html'));
-});
+  // 404 handler - catch all routes and return React app
+  app.get(/^(?!\/api).*$/, (req, res) => {
+    res.sendFile(path.join(clientBuildPath, 'index.html'));
+  });
+} else {
+  // If no React app is built/present, just return a simple message for root
+  app.get('/', (req, res) => {
+    res.send('GYM CRM API is running.');
+  });
+
+  // Default 404 for API or other routes
+  app.use((req, res) => {
+    res.status(404).json({
+      status: 'error',
+      message: 'Route not found'
+    });
+  });
+}
 
 // Initialize scheduled tasks
 scheduleFollowUpReminders();

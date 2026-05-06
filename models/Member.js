@@ -110,7 +110,6 @@ const memberSchema = new mongoose.Schema({
 
 // Index for search optimization
 memberSchema.index({ firstName: 1, lastName: 1 });
-memberSchema.index({ email: 1 });
 memberSchema.index({ phone: 1 });
 memberSchema.index({ 'membership.status': 1 });
 

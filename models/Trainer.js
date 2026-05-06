@@ -164,7 +164,6 @@ const trainerSchema = new mongoose.Schema({
 
 // Index for search optimization
 trainerSchema.index({ firstName: 1, lastName: 1 });
-trainerSchema.index({ email: 1 });
 trainerSchema.index({ phone: 1 });
 trainerSchema.index({ specialization: 1 });
 
