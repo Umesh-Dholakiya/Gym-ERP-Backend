@@ -64,7 +64,7 @@ notificationSchema.index({ type: 1 });
 notificationSchema.index({ createdAt: -1 });
 
 // Pre-save middleware to set readAt timestamp
-notificationSchema.pre('save', function(next) {
+notificationSchema.pre('save', function (next) {
   if (this.isModified('status') && this.status === 'read' && !this.readAt) {
     this.readAt = new Date();
   }
@@ -72,19 +72,19 @@ notificationSchema.pre('save', function(next) {
 });
 
 // Instance method to mark as read
-notificationSchema.methods.markAsRead = function() {
+notificationSchema.methods.markAsRead = function () {
   this.status = 'read';
   this.readAt = new Date();
   return this.save();
 };
 
 // Static method to get unread count for user
-notificationSchema.statics.getUnreadCount = function(userId) {
+notificationSchema.statics.getUnreadCount = function (userId) {
   return this.countDocuments({ userId, status: 'unread' });
 };
 
 // Static method to get recent notifications
-notificationSchema.statics.getRecent = function(userId, limit = 10) {
+notificationSchema.statics.getRecent = function (userId, limit = 10) {
   return this.find({ userId })
     .sort({ createdAt: -1 })
     .limit(limit)

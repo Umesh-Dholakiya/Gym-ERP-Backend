@@ -45,7 +45,7 @@ app.use(helmet({
     },
   },
   crossOriginEmbedderPolicy: false,
-})); 
+}));
 
 app.use(cors({
   origin: process.env.CORS_ORIGINS ? process.env.CORS_ORIGINS.split(',') : [
@@ -62,7 +62,7 @@ app.use(cors({
 
 if (process.env.NODE_ENV === 'production') {
   const accessLogStream = require('fs').createWriteStream(
-    require('path').join(__dirname, 'logs', 'access.log'), 
+    require('path').join(__dirname, 'logs', 'access.log'),
     { flags: 'a' }
   );
   app.use(morgan('combined', { stream: accessLogStream }));
@@ -143,30 +143,30 @@ io.on('connection', (socket) => {
       // Verify the JWT token
       const { verifyToken } = require('./utils/jwt');
       const decoded = verifyToken(token);
-      
+
       if (decoded) {
         const User = require('./models/User');
         const user = await User.findById(decoded.id);
-        
+
         if (!user) {
           socket.emit('unauthorized', { success: false, message: 'User not found' });
           socket.disconnect(true);
           return;
         }
-        
+
         const userInfo = {
           userId: decoded.id,
           email: user.email,
           role: user.role
         };
-        
+
         connectedUsers.set(socket.id, { socket, token, userInfo, joinedAt: new Date() });
         socket.join(`user_${decoded.id}`);
-        
+
         if (user.role === 'admin' || user.role === 'owner') {
           socket.join('admins');
         }
-        
+
         socket.emit('authenticated', { success: true, userId: decoded.id, message: 'Authentication successful' });
       } else {
         socket.emit('unauthorized', { success: false, message: 'Invalid token' });
@@ -231,7 +231,7 @@ global.broadcastToAdmins = broadcastToAdmins;
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error(err.stack);
-  
+
   if (err.isJoi) {
     return res.status(400).json({
       status: 'error',
@@ -239,7 +239,7 @@ app.use((err, req, res, next) => {
       errors: err.details
     });
   }
-  
+
   if (err.name === 'ValidationError') {
     const errors = Object.values(err.errors).map(e => e.message);
     return res.status(400).json({
@@ -248,7 +248,7 @@ app.use((err, req, res, next) => {
       errors
     });
   }
-  
+
   if (err.code === 11000) {
     const field = Object.keys(err.keyValue)[0];
     return res.status(400).json({
@@ -256,11 +256,69 @@ app.use((err, req, res, next) => {
       message: `${field} already exists`
     });
   }
-  
+
   res.status(err.statusCode || 500).json({
     status: 'error',
     message: err.message || 'Internal Server Error'
   });
+});
+
+// Temporary Route to seed database from Render cloud
+app.get('/api/seed', async (req, res) => {
+  try {
+    const Trainer = require('./models/Trainer');
+    const User = require('./models/User');
+    const Service = require('./models/Service');
+    const MembershipPlan = require('./models/MembershipPlan');
+
+    // Clear old data
+    await Promise.all([
+      Trainer.deleteMany({}),
+      User.deleteMany({ role: 'admin' }),
+      Service.deleteMany({}),
+      MembershipPlan.deleteMany({})
+    ]);
+
+    // 1. Create Admin
+    await User.create({
+      name: 'Umesh Dholakiya',
+      email: 'dholakiyaumesh45@gmail.com',
+      password: 'dholakiyaumesh@45',
+      role: 'admin',
+      isActive: true
+    });
+
+    // 2. Create Trainers
+    await Trainer.insertMany([
+      {
+        firstName: 'Rajesh', lastName: 'Patel', email: 'rajesh.patel@gym.com',
+        phone: '9876543210', dateOfBirth: '1985-03-15', gender: 'male',
+        specialization: ['weight-loss', 'strength-training'], hourlyRate: 500, isActive: true
+      },
+      {
+        firstName: 'Priya', lastName: 'Sharma', email: 'priya.sharma@gym.com',
+        phone: '9876543211', dateOfBirth: '1990-07-22', gender: 'female',
+        specialization: ['cardio', 'yoga'], hourlyRate: 450, isActive: true
+      }
+    ]);
+
+    // 3. Create Services
+    await Service.insertMany([
+      { name: 'Personal Training', description: 'One-on-one expert guidance', category: 'personal-training', isActive: true, sortOrder: 1 },
+      { name: 'Yoga Classes', description: 'Group yoga sessions for flexibility', category: 'group-class', isActive: true, sortOrder: 2 },
+      { name: 'CrossFit', description: 'High-intensity interval training', category: 'fitness-program', isActive: true, sortOrder: 3 }
+    ]);
+
+    // 4. Create Plans
+    await MembershipPlan.insertMany([
+      { name: 'Basic Plan', description: 'Access to gym equipment only', duration: 1, durationUnit: 'months', price: 1500, features: ['Gym Access'], isActive: true },
+      { name: 'Pro Plan', description: 'Gym + Classes', duration: 3, durationUnit: 'months', price: 4000, features: ['Gym Access', 'Group Classes'], isPopular: true, isActive: true }
+    ]);
+
+    res.send('✅ Database Fully Seeded with Real Data! (Admin, Trainers, Services, Plans). You can now check the Vercel frontend.');
+  } catch (error) {
+    res.status(500).send('❌ Seed failed: ' + error.message);
+  }
 });
 
 // Serve static files from the React app if it exists (for monolithic deployment)
